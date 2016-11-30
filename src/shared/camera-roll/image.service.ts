@@ -45,6 +45,39 @@ export class ImageService {
     // Hack: hard coded
     return Promise.resolve(DEMO_SRC);
   }
+
+  getLazySrc( photo: cameraRollPhoto) : cameraRollPhoto {
+    if (photo.hasOwnProperty('$src')) return photo;
+    Object.assign(photo, {'$src': ""});
+    this.getSrc(photo).then(src=>{
+      photo['$src'] = src;
+    });
+    console.log('lazySrc, uuid=', photo.uuid);
+    return photo;
+  }
+
+  /**
+   * convert a cameraRollPhoto.localTime string to Date() in local timezone
+   * e.g. cameraRollPhoto.localTime = "2014-10-24 04:45:04.000" => Date()
+   */
+  localTimeAsDate(arg:string | {localTime: string}): Date {
+    let localTime: string;
+    if (typeof arg == "string") {
+      localTime = arg;
+    } else {
+      localTime = arg.localTime;
+    }
+    try {
+      const [,d,h,m,s] = localTime.match( /(.*)\s(\d*):(\d*):(\d*)\./)
+      const dt = new Date(d);
+      dt.setHours(parseInt(h), parseInt(m), parseInt(s));
+      // console.log(`localTimeAsDate=${dt.toISOString()}`)
+      return dt;
+    } catch (err) {
+      throw new Error(`Invalid localTime string, value=${localTime}`);
+    }
+  }
+
 }
 
 
@@ -89,6 +122,7 @@ export class CordovaImageService  extends ImageService {
           , (destfe) => {
             srce.copyTo(destfe, filename
               , (copyfe)=>{
+                console.log(`ImageService.copyFile(): filename=${filename}`);
                 resolve(copyfe)
               }
               , (err)=>{
@@ -146,7 +180,7 @@ export class CordovaImageService  extends ImageService {
     });
     return pr
     .then( path=>{
-      console.log(`uuid=${localIdentifier}, path=${path}`);
+      // console.log(`ImageService.getSrc(): uuid=${localIdentifier}, path=${path}`);
       return path;
     });
   }

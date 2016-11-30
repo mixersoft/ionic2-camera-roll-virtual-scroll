@@ -6,6 +6,7 @@ import { ContactPage } from '../pages/contact/contact';
 import { HomePage } from '../pages/home/home';
 import { TabsPage } from '../pages/tabs/tabs';
 import { MapPage } from '../pages/map/map';
+import { ImageScrollPage } from '../pages/image-scroll/image-scroll';
 
 import { SharedModule } from '../shared/shared.module';
 import { AgmCoreModule } from 'angular2-google-maps/core';
@@ -22,6 +23,7 @@ import {
     HomePage,
     TabsPage
     , MapPage
+    , ImageScrollPage
     // pipes
     , renderPhotoForView
   ],
@@ -41,6 +43,7 @@ import {
     HomePage,
     TabsPage
     , MapPage
+    , ImageScrollPage
   ],
   providers: [
     {provide: ErrorHandler, useClass: IonicErrorHandler}

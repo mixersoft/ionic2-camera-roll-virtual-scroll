@@ -41,4 +41,8 @@ manual changes
 * add code to page `MapPage`
 
 
+### add `imageScroll`
+```
+ionic g page imageScroll
+```
 

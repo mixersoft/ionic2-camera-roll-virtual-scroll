@@ -4,6 +4,7 @@ import { HomePage } from '../home/home';
 import { AboutPage } from '../about/about';
 import { ContactPage } from '../contact/contact';
 import { MapPage } from '../map/map';
+import { ImageScrollPage } from '../image-scroll/image-scroll';
 
 @Component({
   templateUrl: 'tabs.html'
@@ -15,6 +16,7 @@ export class TabsPage {
   tab2Root: any = AboutPage;
   tab3Root: any = ContactPage;
   tabMapRoot: any = MapPage;
+  tabImageScrollRoot: any = ImageScrollPage;
 
   constructor() {
 

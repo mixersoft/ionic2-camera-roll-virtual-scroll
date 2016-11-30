@@ -5,7 +5,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "ionic:build": "ionic-app-scripts build",
+    "ionic:build": "ionic-app-scripts build --dev",
     "ionic:serve": "ionic-app-scripts serve"
   },
   "dependencies": {
