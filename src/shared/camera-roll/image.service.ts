@@ -1,6 +1,7 @@
 import { Injectable, Pipe, PipeTransform, } from '@angular/core';
 import { Platform } from 'ionic-angular';
 import { File } from 'ionic-native';
+import _ from "lodash";
 
 import {cameraRollPhoto} from './index';
 
@@ -30,7 +31,23 @@ export function ImageServiceFactory (platform: Platform) : ImageService {
  * display a static image
  */
 export class ImageService {
+  protected _cache = [];
+  protected CACHE = {
+    GC: 10,
+    LIMIT: 5
+  };
+
   constructor(public platform: Platform){}
+
+  protected cache(uuid:string) {
+    let localIdentifier = uuid.slice(0,36);
+    this._cache.unshift(localIdentifier);
+    if (this._cache.length % 5 == 0) 
+      this._cache = _.uniq(this._cache);
+    if (this._cache.length > this.CACHE.GC ){
+      let remove = this._cache.splice(this.CACHE.LIMIT);
+    }
+  }
 
   getSrc(arg:string | {uuid: string}) : Promise<string> {
     let localIdentifier: string;
@@ -47,7 +64,12 @@ export class ImageService {
   }
 
   getLazySrc( photo: cameraRollPhoto) : cameraRollPhoto {
-    if (photo.hasOwnProperty('$src')) return photo;
+    let localIdentifier = photo.uuid.slice(0,36);
+    if (photo.hasOwnProperty('$src')) {
+      if (this._cache.indexOf(localIdentifier) > -1)
+        return photo;
+    }
+    this.cache(localIdentifier);
     Object.assign(photo, {'$src': ""});
     this.getSrc(photo).then(src=>{
       photo['$src'] = src;
@@ -90,8 +112,43 @@ export class ImageService {
  *  - tested on iOS only
  */
 export class CordovaImageService  extends ImageService {
+  protected CACHE = {
+    GC: 60,
+    LIMIT: 50
+  };
+
   constructor(public platform: Platform){
     super(platform);
+  }
+
+  protected cache(uuid:string) {
+    let localIdentifier = uuid.slice(0,36);
+    this._cache.unshift(localIdentifier);
+    if (this._cache.length % 5 == 0) 
+      this._cache = _.uniq(this._cache);
+    if (this._cache.length > this.CACHE.GC ){
+      // FIFO: remove old files
+      let remove = this._cache.splice(this.CACHE.LIMIT);
+      remove.forEach( localIdentifier=>{
+        this.removeFile(localIdentifier);
+      });
+    }
+  }
+
+  private removeFile(localIdentifier:string) : void {
+    const cordovaPath = cordova.file.cacheDirectory;
+    const filename = `${localIdentifier}.jpg`;
+    window.resolveLocalFileSystemURL(
+      cordovaPath + filename
+      , (srce: any) => {
+        if (srce.isFile){
+          let path = srce.nativeURL;
+          srce.remove(
+            ()=>console.log(`file removed, ${path}`)
+            , (err)=>console.log(`ERROR: file remove, ${err.code}`)
+          );
+        }
+      });
   }
 
   // cordova only
@@ -174,12 +231,14 @@ export class CordovaImageService  extends ImageService {
         return Promise.reject(err);
       })
       .catch( err=>{
+        this._cache = _.filter(this._cache, id=>id!=localIdentifier);
         console.log(err)
         return reject(err);
       });
     });
     return pr
     .then( path=>{
+      // this.cache(localIdentifier);
       // console.log(`ImageService.getSrc(): uuid=${localIdentifier}, path=${path}`);
       return path;
     });
