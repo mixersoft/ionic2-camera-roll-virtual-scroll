@@ -2,6 +2,7 @@
 Sample project to scroll through iOS camera-roll using `ionic2` component [virtual-scroll](http://ionicframework.com/docs/v2/api/components/virtual-scroll/VirtualScroll/). 
 Notes:
 * uses `<ion-img>` to lazyload image requests.
+  * `ion-img[ width, height]` attrs are set correctly, but not updated in `ion-img img[ width, height]` 
 * uses `ImageService.getLazySrc()` to copy image files from `assets-library://asset/` to `cordova.file.cacheDirectory` for access by `IMG[src]`
 * uses simple FIFO image cache/GC to limit the number of image files in cached in `cordova.file.cacheDirectory`
 * NOT tested with WKWebView. see possible issues: 

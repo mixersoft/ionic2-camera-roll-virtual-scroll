@@ -30,9 +30,9 @@
       margin-vertical
       *virtualItem="let photo"
       >
-      <ion-img [src]="getLazySrc(photo).$src" 
-        [width]="photo.$w" 
-        [height]="photo.$h"
+      <ion-img [src]="getLazySrc(photo).$img?.src" 
+        [width]="photo.$img?.w" 
+        [height]="photo.$img?.h"
       ></ion-img>
       <ion-card-content>
         <ion-card-title>
@@ -40,7 +40,10 @@
           <ion-icon name="star" *ngIf="photo.isFavorite"></ion-icon>
         </ion-card-title>
         <p > taken: {{ getLocalTime(photo) }} </p>
-        <p [hidden]="!photo.location"> gps: {{ photo.location?.toJson() | json}} <p>
+        <p > photo: {{ getDimensions(photo) }} 
+          <span [hidden]="!photo.$img">, IMG: {{ getDimensions(photo, '$img') }}</span>
+        </p>
+        <p [hidden]="!photo.position"> gps: {{ photo.position | json}} <p>
         <p class="truncate"> {{photo.uuid}} </p>
       </ion-card-content>
     </ion-card>

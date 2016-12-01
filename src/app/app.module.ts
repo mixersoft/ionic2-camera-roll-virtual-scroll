@@ -12,7 +12,7 @@ import { SharedModule } from '../shared/shared.module';
 import { AgmCoreModule } from 'angular2-google-maps/core';
 import {
   CameraRollWithLocFactory, CameraRollWithLoc, MockCameraRollWithLoc,
-  ImageServiceFactory, ImageService, CordovaImageService, renderPhotoForView
+  ImageServiceFactory, ImageService, CordovaImageService, add$ImgAttrs
 } from "../shared/camera-roll/index";
 
 @NgModule({
@@ -25,7 +25,7 @@ import {
     , MapPage
     , ImageScrollPage
     // pipes
-    , renderPhotoForView
+    , add$ImgAttrs
   ],
   imports: [
     IonicModule.forRoot(MyApp)

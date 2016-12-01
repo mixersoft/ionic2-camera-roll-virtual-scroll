@@ -2,7 +2,7 @@ import { Component, ElementRef, ViewChild } from '@angular/core';
 import { NavController, Platform } from 'ionic-angular';
 
 import {
-  CameraRollWithLoc, ImageService, renderPhotoForView,
+  CameraRollWithLoc, ImageService, add$ImgAttrs,
   cameraRollPhoto,
   GeoJsonPoint,
   mediaType, optionsFilter

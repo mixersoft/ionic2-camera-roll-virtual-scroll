@@ -3,7 +3,7 @@ import { Platform } from 'ionic-angular';
 import { File, DirectoryEntry, Entry, FileError, RemoveResult} from 'ionic-native';
 import _ from "lodash";
 
-import {cameraRollPhoto} from './index';
+import { cameraRollPhoto, localTimeAsDate} from './index';
 
 declare var window;
 declare var cordova;
@@ -11,28 +11,6 @@ declare var cordova;
 // http://stackoverflow.com/questions/31548925/how-to-access-image-from-native-uri-assets-library-in-cordova-for-ios
 // http://stackoverflow.com/questions/39866395/angular2-how-do-i-get-a-different-subclass-of-an-injectable-depending-on-the/39867713#39867713
 const DEMO_SRC = "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcQnF13DgaMHi5rmpKuCiHwID9u-msI9qSZsznjRnWv31LBUedCNqw";
-
-/**
- * convert a cameraRollPhoto.localTime string to Date() in local timezone
- * e.g. cameraRollPhoto.localTime = "2014-10-24 04:45:04.000" => Date()
- */
-export function localTimeAsDate(arg:string | {localTime: string}): Date {
-  let localTime: string;
-  if (typeof arg == "string") {
-    localTime = arg;
-  } else {
-    localTime = arg.localTime;
-  }
-  try {
-    const [,d,h,m,s] = localTime.match( /(.*)\s(\d*):(\d*):(\d*)\./)
-    const dt = new Date(d);
-    dt.setHours(parseInt(h), parseInt(m), parseInt(s));
-    // console.log(`localTimeAsDate=${dt.toISOString()}`)
-    return dt;
-  } catch (err) {
-    throw new Error(`Invalid localTime string, value=${localTime}`);
-  }
-}
 
 /**
  * simple cache manager for cordova image files
@@ -124,18 +102,29 @@ export class ImageService {
     return Promise.resolve(DEMO_SRC);
   }
 
-  getLazySrc( photo: cameraRollPhoto) : cameraRollPhoto {
+  getLazySrc( photo: cameraRollPhoto, imgW?: number, imgH?: number) : cameraRollPhoto {
     let localIdentifier = photo.uuid.slice(0,36);
-    if (photo.hasOwnProperty('$src')) {
-      if (this._fileCache.isCached(localIdentifier))
-        return photo;
-      console.log(`getLazySrc not cached, uuid=${localIdentifier}`);
+    let imgDim = {
+        'w': imgW || (photo['$img'] && photo['$img'].w) || photo.width,
+        'h': imgH || (photo['$img'] && photo['$img'].h) || photo.height
+    };
+    if (imgW){
+      imgDim['h'] = photo.height/photo.width * imgW
+    } else if (imgH) {
+      imgDim['w'] = photo.width/photo.height * imgH;
     }
-    // this.cache(localIdentifier);
+    if (photo['$img']) {
+      if (this._fileCache.isCached(localIdentifier)){
+        Object.assign(photo['$img'], imgDim);
+        return photo;
+      }
+      console.log(`getLazySrc NOT cached, uuid=${localIdentifier}`);
+    }
+
     this._fileCache.cache(localIdentifier);
-    Object.assign(photo, {'$src': ""});
+    photo['$img'] = Object.assign({ 'src': "" }, imgDim);
     this.getSrc(photo).then(src=>{
-      photo['$src'] = src;
+      photo['$img']['src'] = src;
     });
     console.log('lazySrc, uuid=', localIdentifier);
     return photo;
@@ -212,7 +201,7 @@ export class CordovaImageService  extends ImageService {
               srcfe.copyTo(
                 destpath, filename
                 , (destfe)=>{
-                  console.log(`ImageService.copyFile(): filename=${filename}`);
+                  // console.log(`ImageService.copyFile(): filename=${filename}`);
                   resolve(destfe)
                 }
                 , (err)=>{
@@ -279,7 +268,7 @@ export class CordovaImageService  extends ImageService {
     })
     .then(
       (destfe:Entry)=>{
-        console.log(`ImageService.getSrc(): uuid=${localIdentifier}, path=${destfe.nativeURL}`);
+        // console.log(`ImageService.getSrc(): uuid=${localIdentifier}, path=${destfe.nativeURL}`);
         return destfe.nativeURL;
       }
     )
@@ -287,30 +276,13 @@ export class CordovaImageService  extends ImageService {
 }
 
 
-@Pipe({ name:"renderPhotoForView" })
-export class renderPhotoForView implements PipeTransform {
+@Pipe({ name:"add$ImgAttrs" })
+export class add$ImgAttrs implements PipeTransform {
   constructor( private imgSvc: ImageService ){
-    console.warn("angular2 DatePipe is broken on safari, using manual format");
   }
-  /**
-   * convert a cameraRollPhoto.localTime string to Date() in local timezone
-   * e.g. cameraRollPhoto.localTime = "2014-10-24 04:45:04.000" => Date()
-   */
-
-  transform(photos: cameraRollPhoto[]) : any[] {
-    return photos.map(o=>{
-      const add :any = { '$src': ""};
-      if (o.localTime) {
-        // BUG: safari does not parse ISO Date strings
-        add['$localTime'] = localTimeAsDate(o.localTime);
-        // console.warn(`>>> renderPhotoForView attrs=${JSON.stringify(add)}`);
-        // add['$localTime'] = this.datePipe.transform( add['$localTime'], "medium");
-        // TODO: use momentjs
-        add['$localTime'] = add['$localTime'].toString().slice(0,24);
-      }
-      Object.assign(add, o);
-      this.imgSvc.getSrc(o).then( src=>add['$src']=src );
-      return add;
+  transform(photos: cameraRollPhoto[], imgW?: number, imgH?: number) : any[] {
+    return photos.map(photo=>{
+      return this.imgSvc.getLazySrc(photo, imgW, imgH)
     })
   }
 }

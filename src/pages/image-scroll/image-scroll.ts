@@ -3,7 +3,7 @@ import { NavController, Platform } from 'ionic-angular';
 import _ from "lodash";
 
 import {
-  CameraRollWithLoc, ImageService, localTimeAsDate, renderPhotoForView,
+  CameraRollWithLoc, ImageService, localTimeAsDate, add$ImgAttrs,
   cameraRollPhoto,
   mediaType, optionsFilter
 } from "../../shared/index";
@@ -22,16 +22,13 @@ declare var google:any;
 })
 export class ImageScrollPage {
   items : cameraRollPhoto[] = [];
-  photoSrcPipe : renderPhotoForView;
 
   constructor(
     public navCtrl: NavController
     , public platform: Platform
     , public cameraRoll: CameraRollWithLoc
     , public imageService: ImageService
-  ) {
-    this.photoSrcPipe = new renderPhotoForView(this.imageService);
-  }
+  ) {}
 
   ionViewDidLoad() {
     console.log('Hello ImageScrollPage Page');
@@ -82,17 +79,18 @@ export class ImageScrollPage {
   getLazySrc(photo: cameraRollPhoto) : cameraRollPhoto {
     if (!photo) return {} as cameraRollPhoto
     const photoW = 343;
-    const dim = photo['$dim'] || {w:640, h:480}
-
-    if (dim) {
-      photo['$w'] = photoW;
-      photo['$h'] = dim.h/dim.w * photo['$w'];
-    }
-    
-    return this.imageService.getLazySrc(photo)
+    return this.imageService.getLazySrc(photo, photoW)
   }
   getLocalTime(photo: cameraRollPhoto) : string {
     if (!photo) return null
-    return localTimeAsDate(photo).toString().slice(0,24)
+    if (typeof photo.localTime == "string")
+      photo.localTime = localTimeAsDate(photo.localTime)
+    // TODO: use momentjs
+    return photo.localTime.toString().slice(0,24)
+  }
+  getDimensions(photo:cameraRollPhoto, key:string) : string {
+    let o = key ? photo[key] : photo;
+    if (key) return `${Math.round(o.w)}x${Math.round(o.h)}px`;
+    return `${Math.round(o.width)}x${Math.round(o.height)}px`;
   }
 }

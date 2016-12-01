@@ -5,6 +5,7 @@ import _ from "lodash";
 import {cameraRoll as cameraRollAsJsonString} from "./mock-camera-roll";
 import {
   // sebmLatLng, sebmLatLngBounds,
+  LatLngSpeedLiteral,
   GeoJson, GeoJsonPoint, isGeoJson,
   GpsRegion, CircularGpsRegion,
   distanceBetweenLatLng
@@ -48,16 +49,35 @@ export interface optionsSort {
 export interface cameraRollPhoto {
   uuid: string,
   filename: string,
-  location: GeoJsonPoint,
   dateTaken: string, // isoDate
-  localTime: string, // YYYY-MM-DD HH:MM:SS.SSS
+  localTime: string | Date, // YYYY-MM-DD HH:MM:SS.SSS
   mediaType: number,
   mediaSubtype: number,
+
+  width: number,
+  height: number,
+  duration: number,
+
+  location?: GeoJsonPoint,      // deprecate
+  position?: LatLngSpeedLiteral,
+  
   momentId?: string,
   momentLocationName?: string
 }
 
-function _localTimeAsDate(localTime:string): Date {
+/**
+ * convert a cameraRollPhoto.localTime string to Date() in local timezone
+ * e.g. cameraRollPhoto.localTime = "2014-10-24 04:45:04.000" => Date()
+ */
+export function localTimeAsDate(arg:string | {localTime: string}): Date {
+  let localTime: string;
+  if (typeof arg == "string") {
+    localTime = arg;
+  } else {
+    localTime = arg.localTime;
+  }
+  if (!localTime) return;
+  
   try {
     let dt = new Date(localTime);
     if (isNaN(dt as any as number) == false)
@@ -139,7 +159,7 @@ export class CameraRollWithLoc {
     // map startDate=>from, endDate=>to as a convenience
     if (options && !options.from && options['startDate']) options.from = options['startDate']
     if (options && !options.to && options['endDate']) options.to = options['endDate']
-    this._isProcessing = plugin['getByMoments'](options)
+    this._isProcessing = plugin['getCameraRoll'](options)
     .then( (photos)=>{
       console.log(`cameraRollLocation.queryPhotos(), rows=${photos.length}`);
       photos.forEach( (o)=> {
@@ -181,8 +201,8 @@ export class CameraRollWithLoc {
     // let fromAsLocalTime = new Date(from.valueOf() - from.getTimezoneOffset()*60000).toJSON()
     result = result.filter( (o : any) => {
       // filter on localTime
-      if (from && _localTimeAsDate(o['localTime']) < from) return false;
-      if (to && _localTimeAsDate(o['localTime']) > to) return false;
+      if (from && localTimeAsDate(o['localTime']) < from) return false;
+      if (to && localTimeAsDate(o['localTime']) > to) return false;
       if (locationName
         && false === o['momentLocationName'].startsWith(locationName)
         ) return false;

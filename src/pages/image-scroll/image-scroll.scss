@@ -4,4 +4,9 @@ page-image-scroll {
     margin-right: 0;
     width: 100%;
   }
+  .truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
