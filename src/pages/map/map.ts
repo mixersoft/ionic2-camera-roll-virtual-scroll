@@ -52,7 +52,7 @@ export class MapPage {
 
   mapReady() {
     _googleplexLatLng = new google.maps.LatLng(37.4220041,-122.0862515);
-    this.position = _googleplexLatLng;
+    if (!this.position) this.position = _googleplexLatLng;
   }
 
   clear (){
