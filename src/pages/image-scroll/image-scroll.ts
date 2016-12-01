@@ -3,7 +3,7 @@ import { NavController, Platform } from 'ionic-angular';
 import _ from "lodash";
 
 import {
-  CameraRollWithLoc, ImageService, renderPhotoForView,
+  CameraRollWithLoc, ImageService, localTimeAsDate, renderPhotoForView,
   cameraRollPhoto,
   mediaType, optionsFilter
 } from "../../shared/index";
@@ -93,6 +93,6 @@ export class ImageScrollPage {
   }
   getLocalTime(photo: cameraRollPhoto) : string {
     if (!photo) return null
-    return this.imageService.localTimeAsDate(photo).toString().slice(0,24)
+    return localTimeAsDate(photo).toString().slice(0,24)
   }
 }
