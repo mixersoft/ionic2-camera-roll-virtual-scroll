@@ -33,6 +33,11 @@ ionic platform add ios
 ionic build ios
 ionic emulate ios
 ```
+### `package.json` build Notes
+* there is a problem with production builds. set `"ionic:build": "ionic-app-scripts build --dev"`
+* webpack build is the default, but rollup build is available by renaming `"xxxionic_rollup": "./scripts/rollup.config.js"`
+
+
 
 
 ## project setup from scratch
