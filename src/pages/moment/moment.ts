@@ -1,6 +1,7 @@
 import { Component, Pipe } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { NavController, Platform } from 'ionic-angular';
+import { LazyMapsAPILoader } from 'angular2-google-maps/core/services';
 import _ from "lodash";
 
 import {
@@ -162,7 +163,10 @@ function parseCameraRollForMoments(photos: cameraRollPhoto[]) : any {
 @Component({
   selector: 'page-moment',
   templateUrl: 'moment.html'
-  , providers: [DatePipe]
+  , providers: [
+    DatePipe,
+    LazyMapsAPILoader
+  ]
 })
 export class MomentPage {
   moments : moment[] = [];
@@ -176,8 +180,8 @@ export class MomentPage {
     , public cameraRoll: CameraRollWithLoc
     , public imageService: ImageService
     , public datePipe: DatePipe
+    , private googleMapsAPI: LazyMapsAPILoader
   ) {
-
   }
 
   ionViewDidLoad() {
@@ -185,17 +189,25 @@ export class MomentPage {
   }
 
   ionViewDidEnter() {
-    if (_.isEmpty(this.peek) && google && google.maps) {
+    if (_.isEmpty(this.peek)) {
       this.getMoments()
     }
   }
 
 
   getMoments(options = {}){
-    console.warn("getMoments()");
-    this.cameraRoll.queryPhotos(options)
+    let promises: Promise<any>[] = [];
+    promises.push( this.platform.ready().then( 
+      ()=>{ 
+        this.cameraRoll.queryPhotos(options);
+      }) 
+    );
+    promises.push( );
+    promises.push( this.googleMapsAPI.load() );
+    Promise.all(promises)
     .then( ()=>{
       let photos = this.cameraRoll.getPhotos(9999);
+      // make sure google.maps API is loaded
       this.moments = parseCameraRollForMoments(photos);
       this.momentsByLocation = parseMomentsByLocation(this.moments);
 
