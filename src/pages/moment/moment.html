@@ -1,5 +1,5 @@
 <!--
-  Generated template for the ImageScroll page.
+  Generated template for the Moment page.
 
   See http://ionicframework.com/docs/v2/components/#navigation for more info on
   Ionic pages and navigation.
@@ -7,24 +7,43 @@
 <ion-header>
 
   <ion-navbar>
-    <ion-title>{{this.title || "ImageScroll" }}</ion-title>
+    <ion-title>Moment</ion-title>
   </ion-navbar>
 
 </ion-header>
 
 
 <ion-content padding>
-  <ion-list class="virtual-scroll-HACK"
-    [virtualScroll]="items" 
-    [headerFn]="headerFn"
+  <button ion-button color="secondary" (click)="getMoments()"> Get Moments
+  </button>
+
+  <ion-list class="card-background-page virtual-scroll-HACK"
+  *ngIf="peek"
+  [virtualScroll]="peek" 
+  >
+    <ion-card
+      no-padding
+      margin-vertical
+      *virtualItem="let momentLoc"
+      approxItemHeight="200px"
+      (click)="showMomentRoll(momentLoc)"
+      >
+      <ion-img [src]="getLazySrc( momentLoc.$coverPhoto ).$img?.src"></ion-img>
+      <div class="card-title">{{momentLoc.label}}</div>
+      <div class="card-subtitle">{{getSubtitle(momentLoc)}}</div>
+    </ion-card>
+  </ion-list>
+
+  <!--<ion-list
+    *ngIf="selectedCameraRoll"
+    [virtualScroll]="selectedCameraRoll" 
+    [headerFn]="myHeaderFn"
     approxItemHeight="340px"
     approxHeaderHeight="42px"
     >
 
-    <ion-item-divider 
-      *virtualHeader="let header"
-      color="primary">
-      {{ header }}
+    <ion-item-divider *virtualHeader="let header">
+      Photos {{ header }}
     </ion-item-divider>
 
     <ion-card
@@ -49,7 +68,9 @@
         <p class="truncate"> {{photo.uuid}} </p>
       </ion-card-content>
     </ion-card>
+  </ion-list>-->
 
-  </ion-list>
+  <!--<PRE [innerHTML]="this.peek | prettyprint"></PRE>-->
+  
 
 </ion-content>

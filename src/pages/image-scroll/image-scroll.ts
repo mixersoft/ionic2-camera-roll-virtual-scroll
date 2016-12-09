@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { NavController, Platform } from 'ionic-angular';
+import { NavController, NavParams, Platform } from 'ionic-angular';
 import _ from "lodash";
 
 import {
@@ -21,13 +21,16 @@ declare var google:any;
   templateUrl: 'image-scroll.html'
 })
 export class ImageScrollPage {
+  title : string;
   items : cameraRollPhoto[] = [];
+  headerFn: (o,i,l)=>string;
 
   constructor(
     public navCtrl: NavController
     , public platform: Platform
     , public cameraRoll: CameraRollWithLoc
     , public imageService: ImageService
+    , private navParams: NavParams
   ) {}
 
   ionViewDidLoad() {
@@ -35,7 +38,16 @@ export class ImageScrollPage {
   }
 
   ionViewDidEnter() {
-    this.loadCameraRoll();
+    const cameraRoll = this.navParams.get('cameraRoll');
+    if (cameraRoll) {
+      this.items = cameraRoll;
+      this.headerFn = this.navParams.get('headerFn')
+      // console.log('loading cameraRoll from MomentPage, count=', this.items.length)
+    } else {
+      this.headerFn = this.defaultHeaderFn;
+      this.loadCameraRoll();
+    }
+    this.title = this.navParams.get('title') || null;
   }
 
   loadCameraRoll(){
@@ -69,7 +81,7 @@ export class ImageScrollPage {
     })
   }
 
-  myHeaderFn(record, recordIndex, records) {
+  defaultHeaderFn(record, recordIndex, records) : string {
     if (recordIndex % 5 === 0) {
       return `${recordIndex+1} - ${Math.min(recordIndex + 5, records.length)}`;
     }
@@ -79,6 +91,7 @@ export class ImageScrollPage {
   getLazySrc(photo: cameraRollPhoto) : cameraRollPhoto {
     if (!photo) return {} as cameraRollPhoto
     const photoW = 343;
+    // console.info('ImageScrollPage.getLazySrc', photo.filename)
     return this.imageService.getLazySrc(photo, photoW)
   }
   getLocalTime(photo: cameraRollPhoto) : string {

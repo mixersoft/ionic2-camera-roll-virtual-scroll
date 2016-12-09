@@ -7,6 +7,7 @@ import { HomePage } from '../pages/home/home';
 import { TabsPage } from '../pages/tabs/tabs';
 import { MapPage } from '../pages/map/map';
 import { ImageScrollPage } from '../pages/image-scroll/image-scroll';
+import { MomentPage } from '../pages/moment/moment';
 import { PrettyPrintPipe } from '../pipes/pretty-print';
 
 import { SharedModule } from '../shared/shared.module';
@@ -25,6 +26,7 @@ import {
     TabsPage
     , MapPage
     , ImageScrollPage
+    , MomentPage
     // pipes
     , add$ImgAttrs
     , PrettyPrintPipe
@@ -46,6 +48,7 @@ import {
     TabsPage
     , MapPage
     , ImageScrollPage
+    , MomentPage
   ],
   providers: [
     {provide: ErrorHandler, useClass: IonicErrorHandler}
