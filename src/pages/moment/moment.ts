@@ -16,7 +16,7 @@ declare var google: any;
 /**
  * collapse momentIds
  */
-interface moment {
+export interface moment {
   uuid: string
   bounds: google.maps.LatLngBounds
   label: string
@@ -47,12 +47,14 @@ function parseMomentsByLocation(moments: moment[]): {[key:string]:any} {
       loc = {
         label: m.label,
         count: 1,
+        from: m.from,
         moments: [m]
       }
       memo[m.label] = loc
     } else {
       loc.moments.push(m);
       loc.count = loc.moments.length;
+      if (m.from > loc.from) loc.from = m.from; // use mostRecent from date
     }
     return memo
   }, {} as {[key:string]: any} )
@@ -74,8 +76,8 @@ function parseCameraRollForMoments(photos: cameraRollPhoto[]) : any {
           bounds: new google.maps.LatLngBounds(latlng),
           // bounds: new google.maps.LatLngBounds(o.position as any as google.maps.LatLng),
           label: o.momentLocationName,
-          coverId: o['isFavorite'] ? o.uuid : null,
-          coverPhoto: o['isFavorite'] ? o : null,
+          coverId: o['isFavorite'] && o.mediaType==mediaType.Image ? o.uuid : null,
+          coverPhoto: o['isFavorite'] && o.mediaType==mediaType.Image ? o : null,
           bgSrc: o['$img'] && o['$img'].src || null,
           from: localTime,
           to: localTime,
@@ -91,7 +93,7 @@ function parseCameraRollForMoments(photos: cameraRollPhoto[]) : any {
         moment.bounds.extend(latlng)
         if (localTime < moment.from) moment.from = localTime;
         if (localTime > moment.to) moment.to = localTime;
-        if (o['isFavorite'] && !moment.coverId) {
+        if (!moment.coverId && o['isFavorite'] && o.mediaType==mediaType.Image) {
           moment.coverId = o.uuid;
           moment.coverPhoto = o;
         }
@@ -140,16 +142,25 @@ function parseCameraRollForMoments(photos: cameraRollPhoto[]) : any {
 
     // patch moment.coverId if null
     if (!m.coverId){
-      let first = m.cameraRoll[0]
-      m.coverId = !first['photos'] 
-        ? (<cameraRollPhoto>first).uuid
-        : (<burstPhoto>first).photos[(<burstPhoto>first).cover].uuid 
+      // find the first image
+      let coverPhoto = _.find( m.cameraRoll, (o)=>{
+        const p : cameraRollPhoto = o['photos'] 
+          ? (<burstPhoto>o).photos[(<burstPhoto>o).cover]
+          : o as cameraRollPhoto
+        return (p.mediaType == mediaType.Image)
+      })
+      if (!coverPhoto) {
+        // take the first cameraRollPhoto, regardless of type
+        coverPhoto = m.cameraRoll[0]
+      }
+      // dereference burstPhoto, if necessary
+      coverPhoto = !coverPhoto['photos'] 
+        ? (<cameraRollPhoto>coverPhoto)
+        : (<burstPhoto>coverPhoto).photos[(<burstPhoto>coverPhoto).cover]
+      m.coverPhoto = coverPhoto as cameraRollPhoto;
+      m.coverId = coverPhoto.uuid;
     }
   })
-  // .filter( (v,k,l)=>{
-  //   const m: moment = v as any;
-  //   return !!_.find(m.cameraRoll, (p)=>p['photos'])
-  // })
   .value();
   return result as any as moment[];
 }
@@ -202,7 +213,6 @@ export class MomentPage {
         this.cameraRoll.queryPhotos(options);
       }) 
     );
-    promises.push( );
     promises.push( this.googleMapsAPI.load() );
     Promise.all(promises)
     .then( ()=>{
@@ -213,10 +223,12 @@ export class MomentPage {
 
       this.peek = _.chain(this.momentsByLocation)
         .values()
-        .sampleSize(10)
+        .sampleSize(24)
         .each( m=>{
           m['$coverPhoto'] = m['$coverPhoto']  || this.getCoverPhoto(m);
         })
+        .sortBy( o=>o['from'] )  // ASC momentLoc.from
+        .reverse()  // DESC momentLoc.from
         .value();
       console.log('peek', this.peek)
     })
@@ -325,6 +337,7 @@ export class MomentPage {
     }, [])
 
     this.navCtrl.push(ImageScrollPage, {
+      'moments': momentLoc.moments,
       'title': momentLoc.label,
       'cameraRoll': momentLocCameraRollPhotos,
       'headerFn': (o,i,l):string=>{

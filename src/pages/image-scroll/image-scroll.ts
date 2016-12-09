@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { NavController, NavParams, Platform } from 'ionic-angular';
+import { LazyMapsAPILoader } from 'angular2-google-maps/core/services';
 import _ from "lodash";
 
 import {
@@ -7,6 +8,7 @@ import {
   cameraRollPhoto,
   mediaType, optionsFilter
 } from "../../shared/index";
+import { moment } from "../moment/moment"
 
 declare var google:any;
 
@@ -19,8 +21,26 @@ declare var google:any;
 @Component({
   selector: 'page-image-scroll',
   templateUrl: 'image-scroll.html'
+  , providers: [
+    LazyMapsAPILoader
+  ]
+  , styles: [`
+    .sebm-google-map-container {
+      height: 300px;
+      opacity: 0;
+      transition: opacity 150ms ease-in;
+    }
+    @media only screen and (min-width: 500px) {
+      .sebm-google-map-container {
+         height: 480px;
+       }
+    }
+  `],
 })
 export class ImageScrollPage {
+  moments : moment[];
+  mapAttrs: any;
+  showMap: boolean = false;
   title : string;
   items : cameraRollPhoto[] = [];
   headerFn: (o,i,l)=>string;
@@ -31,6 +51,7 @@ export class ImageScrollPage {
     , public cameraRoll: CameraRollWithLoc
     , public imageService: ImageService
     , private navParams: NavParams
+    , private googleMapsAPI: LazyMapsAPILoader
   ) {}
 
   ionViewDidLoad() {
@@ -42,8 +63,30 @@ export class ImageScrollPage {
     if (cameraRoll) {
       this.items = cameraRoll;
       this.headerFn = this.navParams.get('headerFn')
+      this.moments = this.navParams.get('moments');
+      let mapBounds = new google.maps.LatLngBounds()
+      _.each(this.moments, (m,i,l)=>{
+        if (m.bounds instanceof google.maps.LatLngBounds) {
+          mapBounds.union(m.bounds);
+        } else if (_.isFunction(m.bounds['toJSON'])) {
+          // HACK: somehow m.bounds NOT instanceof google.maps.LatLngBounds
+          mapBounds.union( m.bounds['toJSON']() );
+        }
+        // console.log("add bounds", m.bounds.getCenter().toUrlValue());
+      })
+      this.mapAttrs = {
+        bounds: mapBounds,
+        center: mapBounds.getCenter() as google.maps.LatLng,
+        zoom: 14
+      }
+      this.showMap = true;
+      // console.log("isLatLngBounds=", this.mapAttrs.bounds instanceof google.maps.LatLngBounds)
+      // console.log("map LatLng=",this.mapAttrs.center.toUrlValue())
       // console.log('loading cameraRoll from MomentPage, count=', this.items.length)
     } else {
+      this.moments = []
+      this.mapAttrs = null;
+      this.showMap = false;
       this.headerFn = this.defaultHeaderFn;
       this.loadCameraRoll();
     }

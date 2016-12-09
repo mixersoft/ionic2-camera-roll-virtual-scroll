@@ -14,6 +14,16 @@
 
 
 <ion-content padding>
+  <sebm-google-map
+    #sebmGoogleMapComponent
+    *ngIf="showMap"
+    [latitude]="mapAttrs?.center.lat()"
+    [longitude]="mapAttrs?.center.lng()"
+    [zoom]="mapAttrs?.zoom"
+    [disableDefaultUI]="false"
+    [zoomControl]="true"
+    >
+  </sebm-google-map>
   <ion-list class="virtual-scroll-HACK"
     [virtualScroll]="items" 
     [headerFn]="headerFn"
