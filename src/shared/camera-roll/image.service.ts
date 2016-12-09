@@ -20,8 +20,8 @@ const DEMO_SRC = "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcQnF13Dga
  */
 class FileCache {
   GARBAGE_COLLECT = {
-    MAX: 10,
-    MIN: 5
+    MAX: 32,
+    MIN: 12
   };
 
   removeFn : (uuid:string) => void;
@@ -46,14 +46,18 @@ class FileCache {
 
   cache(uuid:string) {
     const localIdentifier = uuid.slice(0,36);
-    this._cache.unshift(localIdentifier);
-    if (this._cache.length % 5 == 0) 
-      this._cache = _.uniq(this._cache);
+    const found = this._cache.indexOf(localIdentifier);
+    if (found > 0) this._cache.splice(found,1);
+    if (found != 0) this._cache.unshift(localIdentifier);
+    // if (this._cache.length % 5 == 0) 
+    //   this._cache = _.uniq(this._cache);
     if (this._cache.length > this.GARBAGE_COLLECT.MAX ){
-      let remove = this._cache.splice(this.GARBAGE_COLLECT.MIN);
-      if (this.removeFn){
-        remove.forEach( localIdentifier=>this.removeFn(localIdentifier) );
-      }
+      setTimeout( ()=>{
+        let remove = this._cache.splice(this.GARBAGE_COLLECT.MIN);
+        if (this.removeFn){
+          remove.forEach( localIdentifier=>this.removeFn(localIdentifier) );
+        }
+      });
     }
   }
   
@@ -85,7 +89,10 @@ export class ImageService {
   protected _fileCache : FileCache;
 
   constructor(public platform: Platform){
-    this._fileCache = new FileCache();
+    this._fileCache = new FileCache({
+      max: 24, 
+      min: 12,
+    });
   }
 
   getSrc(arg:string | {uuid: string}) : Promise<string> {
@@ -114,19 +121,23 @@ export class ImageService {
       imgDim['w'] = photo.width/photo.height * imgH;
     }
     if (photo['$img']) {
+      Object.assign(photo['$img'], imgDim);
       if (this._fileCache.isCached(localIdentifier)){
-        Object.assign(photo['$img'], imgDim);
         return photo;
+      } else {
+        photo['$img'] = Object.assign({ 'src': "" }, imgDim);
+        // console.warn("FileCache GARBAGE_COLLECT causing view render error????")
       }
-      console.log(`getLazySrc NOT cached, uuid=${localIdentifier}`);
-    }
+    } else 
+      photo['$img'] = Object.assign({ 'src': "" }, imgDim);
+
 
     this._fileCache.cache(localIdentifier);
-    photo['$img'] = Object.assign({ 'src': "" }, imgDim);
     this.getSrc(photo).then(src=>{
       photo['$img']['src'] = src;
-    });
-    console.log('lazySrc, uuid=', localIdentifier);
+      console.log(`getLazySrc CACHED, file=${photo.filename}, src=${photo['$img']['src']}`);
+    })
+    .catch( err=>console.error(err) );
     return photo;
   }
 }
@@ -142,16 +153,11 @@ export class ImageService {
  */
 export class CordovaImageService  extends ImageService {
   private _cacheRoot: {[key:string]:DirectoryEntry} = {};
-  protected CACHE = {
-    GC: 60,
-    LIMIT: 50
-  };
-
   constructor(public platform: Platform){
     super(platform);
     this._fileCache.settings({
-      max: 60, 
-      min:50,
+      max: 100, 
+      min: 50,
       removeFn: (uuid:string)=>this.removeFile(uuid)
     });
   }
