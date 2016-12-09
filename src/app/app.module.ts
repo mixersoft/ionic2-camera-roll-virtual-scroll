@@ -7,6 +7,7 @@ import { HomePage } from '../pages/home/home';
 import { TabsPage } from '../pages/tabs/tabs';
 import { MapPage } from '../pages/map/map';
 import { ImageScrollPage } from '../pages/image-scroll/image-scroll';
+import { PrettyPrintPipe } from '../pipes/pretty-print';
 
 import { SharedModule } from '../shared/shared.module';
 import { AgmCoreModule } from 'angular2-google-maps/core';
@@ -26,6 +27,7 @@ import {
     , ImageScrollPage
     // pipes
     , add$ImgAttrs
+    , PrettyPrintPipe
   ],
   imports: [
     IonicModule.forRoot(MyApp)

@@ -68,7 +68,7 @@ export class MapPage {
   }
 
   handleClick (){
-    this.cameraRoll.queryPhotos()
+    this.cameraRoll.queryPhotos({})
     .then( ()=>{
       this.items = this.cameraRoll.filterPhotos({
         startDate: new Date('2016-01-01'),
