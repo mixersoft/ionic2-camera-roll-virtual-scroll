@@ -349,7 +349,9 @@ export class MomentPage {
         let dateRangeStr = from.toDateString();
         const daysBtw = daysBetween(from, to);
         if (daysBtw > 0)  dateRangeStr += ` ${daysBtw + 1} days`
-        return `${dateRangeStr} ${count} photo` + (count>1 ? 's' : '');
+        dateRangeStr = `${dateRangeStr} ${count} photo` + (count>1 ? 's' : '');
+        const momentCounter = `(${ _.keys(headerLookup).indexOf(i+'')+1 }/${momentLoc.moments.length}) moments`;
+        return  `${dateRangeStr}   ${momentCounter}`;
       }
     })
     return;

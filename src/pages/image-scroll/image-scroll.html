@@ -17,6 +17,7 @@
   <sebm-google-map
     #sebmGoogleMapComponent
     *ngIf="showMap"
+    [fitBounds]="mapAttrs?.bounds"
     [latitude]="mapAttrs?.center.lat()"
     [longitude]="mapAttrs?.center.lng()"
     [zoom]="mapAttrs?.zoom"
@@ -31,6 +32,7 @@
     >
     </sebm-google-map-marker>
   </sebm-google-map>
+  <br />
   <ion-list class="virtual-scroll-HACK"
     [virtualScroll]="items" 
     [headerFn]="headerFn"

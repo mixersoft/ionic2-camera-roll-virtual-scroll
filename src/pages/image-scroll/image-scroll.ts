@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ViewChild } from '@angular/core';
 import { NavController, NavParams, Platform } from 'ionic-angular';
 import { LazyMapsAPILoader } from 'angular2-google-maps/core/services';
 import _ from "lodash";
@@ -44,6 +44,9 @@ export class ImageScrollPage {
   title : string;
   items : cameraRollPhoto[] = [];
   headerFn: (o,i,l)=>string;
+  fitBounds: google.maps.LatLngBoundsLiteral;
+
+  @ViewChild('sebmGoogleMapComponent') private sebmGoogMap: any;
 
   constructor(
     public navCtrl: NavController
@@ -75,10 +78,12 @@ export class ImageScrollPage {
         // console.log("add bounds", m.bounds.getCenter().toUrlValue());
       })
       this.mapAttrs = {
-        bounds: mapBounds,
+        bounds: mapBounds.toJSON(),
         center: mapBounds.getCenter() as google.maps.LatLng,
         zoom: 14
       }
+      // console.log('mapAttrs=',this.mapAttrs);
+
       this.showMap = true;
       // console.log("isLatLngBounds=", this.mapAttrs.bounds instanceof google.maps.LatLngBounds)
       // console.log("map LatLng=",this.mapAttrs.center.toUrlValue())
