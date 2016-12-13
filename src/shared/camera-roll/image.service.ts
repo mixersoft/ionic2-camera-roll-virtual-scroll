@@ -1,7 +1,9 @@
 import { Injectable, Pipe, PipeTransform, } from '@angular/core';
+import ImgCache from 'imgcache.js';
 import { Platform } from 'ionic-angular';
 import { File, DirectoryEntry, Entry, FileError, RemoveResult} from 'ionic-native';
 import _ from "lodash";
+
 
 import { cameraRollPhoto, localTimeAsDate} from './index';
 
@@ -95,6 +97,45 @@ export class ImageService {
     });
   }
 
+  /**
+   * use ImgCache to save hhtp URI to cache
+   * WARNING: DOES NOT SUPPORT `assets-library:` native urls
+   */
+  getURIFromImgCache(src: string){
+    if (!ImgCache.ready) {
+      console.warn("ImageCache not READY");
+      return Promise.reject(src);
+    }
+    if (src.indexOf('assets-library:') === 0) {
+      console.warn("ImageCache does NOT support iOS nativeURLs");
+      return Promise.reject(src);
+    }
+    return new Promise<string>( (resolve, reject)=>{
+      ImgCache.isCached(src, (path:string, success: boolean)=>{
+        if (success){
+          ImgCache.getCachedFileURL(src
+          , (src:string, cachedSrc:string)=>{
+            resolve(cachedSrc);
+          })
+          , (src:string)=>{
+            console.warn("ERROR: getCachedFileURL(), src=", src)
+            reject(src);
+          }
+        } else {
+          ImgCache.cacheFile(src
+          , (cachedSrc:string)=>{
+            console.log(`ImgCache.getCurrentSize=${ImgCache.getCurrentSize()}`);
+            resolve(cachedSrc);
+          }
+          , (error)=>{
+            console.warn("ERROR: cacheFile(), src=", src);
+            reject(src)
+          });
+        }
+      })
+    });
+  }
+
   getSrc(arg:string | {uuid: string}) : Promise<string> {
     let localIdentifier: string;
     if (typeof arg == "string") {
@@ -105,8 +146,13 @@ export class ImageService {
       console.error("Error: expecting uuid or {uuid: }");
       return;
     }
-    // Hack: hard coded
-    return Promise.resolve(DEMO_SRC);
+    
+    const src = localIdentifier;
+    return this.getURIFromImgCache(src)
+    .catch( (src)=>{
+      // Hack: hard coded
+      return Promise.resolve(DEMO_SRC);
+    })
   }
 
   getLazySrc( photo: cameraRollPhoto, imgW?: number, imgH?: number) : cameraRollPhoto {
@@ -245,8 +291,18 @@ export class CordovaImageService  extends ImageService {
     const filename = `${localIdentifier}.jpg`;
     //    FAILs with uuid="0A929779-BFA0-4C1C-877C-28F353BB0EB3/L0/001"
     //    OK with    uuid="0A929779-BFA0-4C1C-877C-28F353BB0EB3"
-    return File.checkFile(cordovaPath, filename)
-    .then(  (isFile)=>{
+
+    return Promise.resolve()
+    // .then( ()=>{
+    //   // using imgcache.js:  DOES NOT SUPPORT `assets-library:` native urls
+    //   return this.getFromImgCache(nativePath + nativeFile)
+    //   .catch( (src)=>{
+    //     console.warn("recover: using File.checkFile() instead")
+    //   })
+    // })
+    .then( ()=>{
+      return File.checkFile(cordovaPath, filename)
+    }).then(  (isFile)=>{
       if (!isFile){
         // File.removeFile()?
         throw new Error("Not a file, is this a directory??");
