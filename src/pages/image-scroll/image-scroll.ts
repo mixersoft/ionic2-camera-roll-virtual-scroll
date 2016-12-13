@@ -26,7 +26,7 @@ declare var google:any;
   ]
   , styles: [`
     .sebm-google-map-container {
-      height: 300px;
+      height: 240px;
       opacity: 0;
       transition: opacity 150ms ease-in;
     }

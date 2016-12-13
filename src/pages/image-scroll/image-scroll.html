@@ -23,6 +23,13 @@
     [disableDefaultUI]="false"
     [zoomControl]="true"
     >
+    <sebm-google-map-marker
+      *ngFor="let m of items; let i = index;"
+      [latitude]="m.position?.lat"
+      [longitude]="m.position?.lng"
+      [iconUrl]="'assets/icon/yellow-star-icon_16-43372.png'"
+    >
+    </sebm-google-map-marker>
   </sebm-google-map>
   <ion-list class="virtual-scroll-HACK"
     [virtualScroll]="items" 
