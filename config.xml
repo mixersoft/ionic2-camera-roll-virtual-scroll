@@ -34,4 +34,5 @@
     <plugin name="cordova-plugin-file" spec="~4.3.0" />
     <plugin name="cordova-plugin-file-transfer" spec="~1.6.1" />
     <plugin name="cordova-plugin-device" spec="~1.1.4" />
+    <plugin name="cordova-plugin-wkwebview-engine" spec="~1.1.1" />
 </widget>
