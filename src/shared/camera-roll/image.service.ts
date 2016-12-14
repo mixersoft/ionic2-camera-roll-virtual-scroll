@@ -1,12 +1,21 @@
 import { Injectable, Pipe, PipeTransform, } from '@angular/core';
+import ImgCache from 'imgcache.js';
 import { Platform } from 'ionic-angular';
 import { File, DirectoryEntry, Entry, FileError, RemoveResult} from 'ionic-native';
 import _ from "lodash";
+
 
 import { cameraRollPhoto, localTimeAsDate} from './index';
 
 declare var window;
 declare var cordova;
+
+/**
+ * NOTE: WkWebView delivers much better performance in cordova, 
+ * but it currently has no access to fileURIs, so dataURIs are 
+ * required. set in base class constructor
+ */
+let USE_DATA_URI = false;   
 
 // http://stackoverflow.com/questions/31548925/how-to-access-image-from-native-uri-assets-library-in-cordova-for-ios
 // http://stackoverflow.com/questions/39866395/angular2-how-do-i-get-a-different-subclass-of-an-injectable-depending-on-the/39867713#39867713
@@ -23,10 +32,9 @@ class FileCache {
     MAX: 32,
     MIN: 12
   };
-
   removeFn : (uuid:string) => void;
-  
-  private _cache: string[] = [];
+  private _cache: string[] = []; // log cache requests, LIFO
+  private _data: {[key:string]: string}  = {}  //  { uuid: dataURI or fileURI } 
 
   constructor(options: any = {}){
     this.settings(options);
@@ -36,7 +44,7 @@ class FileCache {
     let {max, min, removeFn} = options;
     if (max) this.GARBAGE_COLLECT.MAX = max
     if (min) this.GARBAGE_COLLECT.MIN = min
-    if (removeFn) this.removeFn = removeFn;
+    if (!(removeFn == undefined)) this.removeFn = removeFn;
   }
 
   isCached(uuid:string):boolean {
@@ -44,21 +52,28 @@ class FileCache {
     return this._cache.indexOf(localIdentifier) > -1;
   }
 
-  cache(uuid:string) {
+  cache(uuid:string, value?: string) : string {
     const localIdentifier = uuid.slice(0,36);
+    if (value) {
+      this._data[localIdentifier] = value;
+      console.log("FileCache._data keys, count=", _.keys(this._data).length);
+    }
+
     const found = this._cache.indexOf(localIdentifier);
     if (found > 0) this._cache.splice(found,1);
     if (found != 0) this._cache.unshift(localIdentifier);
-    // if (this._cache.length % 5 == 0) 
-    //   this._cache = _.uniq(this._cache);
     if (this._cache.length > this.GARBAGE_COLLECT.MAX ){
       setTimeout( ()=>{
         let remove = this._cache.splice(this.GARBAGE_COLLECT.MIN);
-        if (this.removeFn){
-          remove.forEach( localIdentifier=>this.removeFn(localIdentifier) );
-        }
+        remove.forEach( localIdentifier=>{
+          delete this._data[localIdentifier];  // dataURI or fileURI
+          if (this.removeFn) this.removeFn(localIdentifier);
+        });
       });
     }
+
+    return this._data[localIdentifier] || null;
+    
   }
   
   clear(uuid:string){
@@ -73,15 +88,18 @@ class FileCache {
  * factory function to create ImageService stub when platform is NOT cordova
  */
 export function ImageServiceFactory (platform: Platform) : ImageService {
-  if (platform.is("cordova"))
+  if (platform.is("cordova")) {
     return new CordovaImageService(platform)
-  else
+  } else
     return new ImageService(platform)
 }
 
 
-@Injectable()
 
+
+
+
+@Injectable()
 /**
  * display a static image
  */
@@ -89,13 +107,56 @@ export class ImageService {
   protected _fileCache : FileCache;
 
   constructor(public platform: Platform){
+    this.platform['$isWKWebView'] = !!window.indexedDB
+    if (this.platform['$isWKWebView']) {
+      USE_DATA_URI = true;
+    }
     this._fileCache = new FileCache({
       max: 24, 
       min: 12,
     });
   }
 
-  getSrc(arg:string | {uuid: string}) : Promise<string> {
+  /**
+   * use ImgCache to save hhtp URI to cache
+   * WARNING: DOES NOT SUPPORT `assets-library:` native urls
+   */
+  getURIFromImgCache(src: string){
+    if (!ImgCache.ready) {
+      console.warn("ImageCache not READY");
+      return Promise.reject(src);
+    }
+    if (src.indexOf('assets-library:') === 0) {
+      console.warn("ImageCache does NOT support iOS nativeURLs");
+      return Promise.reject(src);
+    }
+    return new Promise<string>( (resolve, reject)=>{
+      ImgCache.isCached(src, (path:string, success: boolean)=>{
+        if (success){
+          ImgCache.getCachedFileURL(src
+          , (src:string, cachedSrc:string)=>{
+            resolve(cachedSrc);
+          })
+          , (src:string)=>{
+            console.warn("ERROR: getCachedFileURL(), src=", src)
+            reject(src);
+          }
+        } else {
+          ImgCache.cacheFile(src
+          , (cachedSrc:string)=>{
+            console.log(`ImgCache.getCurrentSize=${ImgCache.getCurrentSize()}`);
+            resolve(cachedSrc);
+          }
+          , (error)=>{
+            console.warn("ERROR: cacheFile(), src=", src);
+            reject(src)
+          });
+        }
+      })
+    });
+  }
+
+  getSrc(arg:string | {uuid: string}, dim?: {w:number, h:number}) : Promise<string> {
     let localIdentifier: string;
     if (typeof arg == "string") {
       localIdentifier = arg;
@@ -105,42 +166,67 @@ export class ImageService {
       console.error("Error: expecting uuid or {uuid: }");
       return;
     }
-    // Hack: hard coded
-    return Promise.resolve(DEMO_SRC);
+    
+    return Promise.resolve(DEMO_SRC)
+    // .then( ()=>{
+    //   return this.getURIFromImgCache(localIdentifier)
+    //   .catch( (src)=>{
+    //     // Hack: hard coded
+    //     return Promise.resolve(DEMO_SRC);
+    //   })
+    // })
+    .then(  src=>{
+      return this._fileCache.cache(localIdentifier, src)
+    })
   }
 
   getLazySrc( photo: cameraRollPhoto, imgW?: number, imgH?: number) : cameraRollPhoto {
+    const start = Date.now();
     let localIdentifier = photo.uuid.slice(0,36);
+    let $img = photo['$img'];
     let imgDim = {
-        'w': imgW || (photo['$img'] && photo['$img'].w) || photo.width,
-        'h': imgH || (photo['$img'] && photo['$img'].h) || photo.height
+        'w': (imgW || ($img && $img.w) || photo.width) as number,
+        'h': (imgH || ($img && $img.h) || photo.height) as number
     };
     if (imgW){
       imgDim['h'] = photo.height/photo.width * imgW
     } else if (imgH) {
       imgDim['w'] = photo.width/photo.height * imgH;
     }
-    if (photo['$img']) {
-      Object.assign(photo['$img'], imgDim);
-      if (this._fileCache.isCached(localIdentifier)){
-        return photo;
-      } else {
-        photo['$img'] = Object.assign({ 'src': "" }, imgDim);
-        // console.warn("FileCache GARBAGE_COLLECT causing view render error????")
-      }
-    } else 
+
+    let src: string = this._fileCache.cache(localIdentifier);  // fileURI or dataURI
+    if (src){
+      // file is cached and ready to go
+      if (!$img) photo['$img'] = {} 
+      Object.assign(photo['$img'], imgDim, src);
+      console.log(`getLazySrc FROM cache, file=${photo.filename}, ms=${Date.now()-start}`);
+      return photo;
+    }
+
+    if (photo['$img'] && this._fileCache.isCached(localIdentifier)) {
+      // waiting for getSrc() completion
+      Object.assign(photo['$img'], imgDim);   // update dimensions
+      return photo;
+    } else {
+      // request to cache item
       photo['$img'] = Object.assign({ 'src': "" }, imgDim);
-
-
-    this._fileCache.cache(localIdentifier);
-    this.getSrc(photo).then(src=>{
-      photo['$img']['src'] = src;
-      console.log(`getLazySrc CACHED, file=${photo.filename}, src=${photo['$img']['src']}`);
-    })
-    .catch( err=>console.error(err) );
+      this._fileCache.cache(localIdentifier);
+      this.getSrc(photo, imgDim).then( (src)=>{
+        photo['$img']['src'] = src;
+        if (src)
+          console.log(`getLazySrc CACHED, file=${photo.filename}, ms=${Date.now()-start}`);
+        else
+          throw new Error("getSrc() returned an empty value")
+      })
+      .catch( err=>console.error(err) );
+    }
     return photo;
   }
 }
+
+
+
+
 
 
 
@@ -152,16 +238,34 @@ export class ImageService {
  *  - tested on iOS only
  */
 export class CordovaImageService  extends ImageService {
-  private _cacheRoot: {[key:string]:DirectoryEntry} = {};
+  private _cacheRoot: {[key:string]:DirectoryEntry} = {}; // folders for cached files
+
   constructor(public platform: Platform){
     super(platform);
-    this._fileCache.settings({
-      max: 100, 
-      min: 50,
-      removeFn: (uuid:string)=>this.removeFile(uuid)
-    });
+    const fileCacheOptions = {}
+    if (USE_DATA_URI) {
+      // using FileCache with dataURIs
+      // plugin.getImage() with 320px images
+      // increase FileCache limits
+      Object.assign(fileCacheOptions, {
+        max: 400, 
+        min: 300,
+      })
+    } else {
+      // using FileCache with fileURIs
+      // fullres images from cameraRoll
+      Object.assign(fileCacheOptions, {
+        max: 100, 
+        min: 50,
+        removeFn: (uuid:string)=>this.removeFile(uuid)
+      })
+    }
+    this._fileCache.settings(fileCacheOptions);
   }
 
+  /**
+   * remove image files cached in cordova app folder  
+   */
   private removeFile(localIdentifier:string) : void {
     const cordovaPath = cordova.file.cacheDirectory;
     const filename = `${localIdentifier}.jpg`;
@@ -226,7 +330,7 @@ export class CordovaImageService  extends ImageService {
     });
   }
 
-  getSrc(arg:string | {uuid: string}) : Promise<string | Error> {
+  getSrc(arg:string | {uuid: string}, dim?: {w:number, h:number}) : Promise<string | Error> {
     let localIdentifier: string;
     if (typeof arg == "string") {
       localIdentifier = arg;
@@ -237,47 +341,86 @@ export class CordovaImageService  extends ImageService {
       return;
     }
 
-    // cordova only
-    localIdentifier = localIdentifier.slice(0,36);  // using just uuid
-    const nativePath = `assets-library://asset/`
-    const nativeFile = `asset.JPG?id=${localIdentifier}&ext=JPG`
-    const cordovaPath = cordova.file.cacheDirectory;
-    const filename = `${localIdentifier}.jpg`;
-    //    FAILs with uuid="0A929779-BFA0-4C1C-877C-28F353BB0EB3/L0/001"
-    //    OK with    uuid="0A929779-BFA0-4C1C-877C-28F353BB0EB3"
-    return File.checkFile(cordovaPath, filename)
-    .then(  (isFile)=>{
-      if (!isFile){
-        // File.removeFile()?
-        throw new Error("Not a file, is this a directory??");
+    // check FileCache
+    let src = this._fileCache.cache(localIdentifier);
+    if (src) return Promise.resolve(src);
+
+    // PHImageManager.requestImage() in iOS
+    if (USE_DATA_URI){
+      const plugin : any = _.get( window, "cordova.plugins.CameraRollLocation");
+      if (plugin && plugin['getImage']){
+        return new Promise<string>( (resolve, reject)=>{
+            const options = {
+              width: dim && dim.w || 320, 
+              height: dim && dim.h || 240,
+              rawDataURI: false 
+            }
+            plugin['getImage']([localIdentifier], options
+            , (result)=>{
+              // _.each(result, (dataURI,k,l)=>{
+              //   this._fileCache.cache(localIdentifier, dataURI);
+              // })
+              // const dataURI = this._fileCache.cache(localIdentifier);
+              const dataURI = result[localIdentifier];
+              resolve(dataURI);
+            }
+            , (err)=>reject(err)
+          )
+        })
       }
-      return File.resolveLocalFilesystemUrl(cordovaPath + filename)
-    })
-    .catch( (err)=>{
-      if (err.message=="NOT_FOUND_ERR")
-        // copy file from iOS to cordova.file.cacheDirectory
-        // NOTE: cannot use File.copyFile from src_path=`assets-library:`
-        return this.copyFile(cordovaPath, localIdentifier)
-        .catch( 
-          (err)=>{
-            // this.cache(localIdentifier);    
-            this._fileCache.cache(localIdentifier);   // cache copyFile errors to avoid repeat
-            console.error(`Error: File.copyFile(), err=${err}`);
-            throw err;
-          }
-        )
-      // for all other FileErrors:
-      // update cache on File.copyFile() error  
-      this._fileCache.clear(localIdentifier);
-      console.log(`getSrc() Error, err=${JSON.stringify(err)}`); 
-      throw err;
-    })
-    .then(
-      (destfe:Entry)=>{
-        // console.log(`ImageService.getSrc(): uuid=${localIdentifier}, path=${destfe.nativeURL}`);
-        return destfe.nativeURL;
-      }
-    )
+    } else {   
+      // use fileURI
+      localIdentifier = localIdentifier.slice(0,36);  // using just uuid
+      const nativePath = `assets-library://asset/`
+      const nativeFile = `asset.JPG?id=${localIdentifier}&ext=JPG`
+      const cordovaPath = cordova.file.cacheDirectory;
+      const filename = `${localIdentifier}.jpg`;
+      //    FAILs with uuid="0A929779-BFA0-4C1C-877C-28F353BB0EB3/L0/001"
+      //    OK with    uuid="0A929779-BFA0-4C1C-877C-28F353BB0EB3"
+
+      return Promise.resolve()
+      // .then( ()=>{
+      //   // using imgcache.js:  DOES NOT SUPPORT `assets-library:` native urls
+      //   return this.getFromImgCache(nativePath + nativeFile)
+      //   .catch( (src)=>{
+      //     console.warn("recover: using File.checkFile() instead")
+      //   })
+      // })
+      .then( ()=>{
+        return File.checkFile(cordovaPath, filename)
+      }).then(  (isFile)=>{
+        if (!isFile){
+          // File.removeFile()?
+          throw new Error("Not a file, is this a directory??");
+        }
+        return File.resolveLocalFilesystemUrl(cordovaPath + filename)
+      })
+      .catch( (err)=>{
+        if (err.message=="NOT_FOUND_ERR")
+          // copy file from iOS to cordova.file.cacheDirectory
+          // NOTE: cannot use File.copyFile from src_path=`assets-library:`
+          return this.copyFile(cordovaPath, localIdentifier)
+          .catch( 
+            (err)=>{
+              // this.cache(localIdentifier);    
+              this._fileCache.cache(localIdentifier);   // cache copyFile errors to avoid repeat
+              console.error(`Error: File.copyFile(), err=${err}`);
+              throw err;
+            }
+          )
+        // for all other FileErrors:
+        // update cache on File.copyFile() error  
+        this._fileCache.clear(localIdentifier);
+        console.log(`getSrc() Error, err=${JSON.stringify(err)}`); 
+        throw err;
+      })
+      .then(
+        (destfe:Entry)=>{
+          // console.log(`ImageService.getSrc(): uuid=${localIdentifier}, path=${destfe.nativeURL}`);
+          return destfe.nativeURL;
+        }
+      )
+    }
   }
 }
 
