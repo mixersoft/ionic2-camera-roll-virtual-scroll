@@ -62,6 +62,7 @@ function parseMomentsByLocation(moments: moment[]): {[key:string]:any} {
 
 function parseCameraRollForMoments(photos: cameraRollPhoto[]) : any {
   let result = _.chain(photos)
+  .sortBy(o=>o['dateTaken'])
   // reduce: index by cameraRollPhoto.momentId
   .reduce( (byMomentIds, o,i,l)=>{
     if (!o.location) return byMomentIds
@@ -223,6 +224,15 @@ export class MomentPage {
 
       this.peek = _.chain(this.momentsByLocation)
         .values()
+        .filter(
+          // sample from momentsLocs with > 5 photos
+          (m)=>{
+            const photoCount = _.reduce(m['moments'], (memo, o: moment)=>{
+              return memo += o.cameraRoll.length;
+            }, 0)
+            return photoCount > 5;
+          }
+        )
         .sampleSize(24)
         .each( m=>{
           m['$coverPhoto'] = m['$coverPhoto']  || this.getCoverPhoto(m);
