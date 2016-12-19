@@ -349,78 +349,74 @@ export class CordovaImageService  extends ImageService {
     if (USE_DATA_URI){
       const plugin : any = _.get( window, "cordova.plugins.CameraRollLocation");
       if (plugin && plugin['getImage']){
-        return new Promise<string>( (resolve, reject)=>{
-            const options = {
-              width: dim && dim.w || 320, 
-              height: dim && dim.h || 240,
-              rawDataURI: false 
-            }
-            plugin['getImage']([localIdentifier], options
-            , (result)=>{
-              // _.each(result, (dataURI,k,l)=>{
-              //   this._fileCache.cache(localIdentifier, dataURI);
-              // })
-              // const dataURI = this._fileCache.cache(localIdentifier);
-              const dataURI = result[localIdentifier];
-              resolve(dataURI);
-            }
-            , (err)=>reject(err)
-          )
-        })
+        const options = {
+          width: dim && dim.w || 320, 
+          height: dim && dim.h || 240,
+          rawDataURI: false 
+        }
+        return plugin['getImage']([localIdentifier], options)
+        .then( (result)=>{
+          const src = result[localIdentifier];
+          // console.log(`getSrc(), result=${src.slice(0,50)}`)
+          return src
+        });
       }
-    } else {   
-      // use fileURI
-      localIdentifier = localIdentifier.slice(0,36);  // using just uuid
-      const nativePath = `assets-library://asset/`
-      const nativeFile = `asset.JPG?id=${localIdentifier}&ext=JPG`
-      const cordovaPath = cordova.file.cacheDirectory;
-      const filename = `${localIdentifier}.jpg`;
-      //    FAILs with uuid="0A929779-BFA0-4C1C-877C-28F353BB0EB3/L0/001"
-      //    OK with    uuid="0A929779-BFA0-4C1C-877C-28F353BB0EB3"
+    } 
 
-      return Promise.resolve()
-      // .then( ()=>{
-      //   // using imgcache.js:  DOES NOT SUPPORT `assets-library:` native urls
-      //   return this.getFromImgCache(nativePath + nativeFile)
-      //   .catch( (src)=>{
-      //     console.warn("recover: using File.checkFile() instead")
-      //   })
-      // })
-      .then( ()=>{
-        return File.checkFile(cordovaPath, filename)
-      }).then(  (isFile)=>{
-        if (!isFile){
-          // File.removeFile()?
-          throw new Error("Not a file, is this a directory??");
-        }
-        return File.resolveLocalFilesystemUrl(cordovaPath + filename)
-      })
-      .catch( (err)=>{
-        if (err.message=="NOT_FOUND_ERR")
-          // copy file from iOS to cordova.file.cacheDirectory
-          // NOTE: cannot use File.copyFile from src_path=`assets-library:`
-          return this.copyFile(cordovaPath, localIdentifier)
-          .catch( 
-            (err)=>{
-              // this.cache(localIdentifier);    
-              this._fileCache.cache(localIdentifier);   // cache copyFile errors to avoid repeat
-              console.error(`Error: File.copyFile(), err=${err}`);
-              throw err;
-            }
-          )
-        // for all other FileErrors:
-        // update cache on File.copyFile() error  
-        this._fileCache.clear(localIdentifier);
-        console.log(`getSrc() Error, err=${JSON.stringify(err)}`); 
-        throw err;
-      })
-      .then(
-        (destfe:Entry)=>{
-          // console.log(`ImageService.getSrc(): uuid=${localIdentifier}, path=${destfe.nativeURL}`);
-          return destfe.nativeURL;
-        }
-      )
-    }
+    if (USE_DATA_URI)
+      console.warn("Using FileURIs as fallback!")
+      
+    // use fileURI as fallback
+    localIdentifier = localIdentifier.slice(0,36);  // using just uuid
+    const nativePath = `assets-library://asset/`
+    const nativeFile = `asset.JPG?id=${localIdentifier}&ext=JPG`
+    const cordovaPath = cordova.file.cacheDirectory;
+    const filename = `${localIdentifier}.jpg`;
+    //    FAILs with uuid="0A929779-BFA0-4C1C-877C-28F353BB0EB3/L0/001"
+    //    OK with    uuid="0A929779-BFA0-4C1C-877C-28F353BB0EB3"
+
+    return Promise.resolve()
+    // .then( ()=>{
+    //   // using imgcache.js:  DOES NOT SUPPORT `assets-library:` native urls
+    //   return this.getFromImgCache(nativePath + nativeFile)
+    //   .catch( (src)=>{
+    //     console.warn("recover: using File.checkFile() instead")
+    //   })
+    // })
+    .then( ()=>{
+      return File.checkFile(cordovaPath, filename)
+    }).then(  (isFile)=>{
+      if (!isFile){
+        // File.removeFile()?
+        throw new Error("Not a file, is this a directory??");
+      }
+      return File.resolveLocalFilesystemUrl(cordovaPath + filename)
+    })
+    .catch( (err)=>{
+      if (err.message=="NOT_FOUND_ERR")
+        // copy file from iOS to cordova.file.cacheDirectory
+        // NOTE: cannot use File.copyFile from src_path=`assets-library:`
+        return this.copyFile(cordovaPath, localIdentifier)
+        .catch( 
+          (err)=>{
+            // this.cache(localIdentifier);    
+            this._fileCache.cache(localIdentifier);   // cache copyFile errors to avoid repeat
+            console.error(`Error: File.copyFile(), err=${err}`);
+            throw err;
+          }
+        )
+      // for all other FileErrors:
+      // update cache on File.copyFile() error  
+      this._fileCache.clear(localIdentifier);
+      console.log(`getSrc() Error, err=${JSON.stringify(err)}`); 
+      throw err;
+    })
+    .then(
+      (destfe:Entry)=>{
+        // console.log(`ImageService.getSrc(): uuid=${localIdentifier}, path=${destfe.nativeURL}`);
+        return destfe.nativeURL;
+      }
+    )
   }
 }
 

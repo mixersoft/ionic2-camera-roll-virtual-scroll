@@ -159,9 +159,10 @@ export class CameraRollWithLoc {
     // map startDate=>from, endDate=>to as a convenience
     if (options && !options.from && options['startDate']) options.from = options['startDate']
     if (options && !options.to && options['endDate']) options.to = options['endDate']
+    console.info("0> getCameraRoll, options=", JSON.stringify(options));
     this._isProcessing = plugin['getCameraRoll'](options)
     .then( (photos)=>{
-      console.log(`cameraRollLocation.queryPhotos(), rows=${photos.length}`);
+      console.log(`1> cameraRollLocation.queryPhotos(), rows=${photos.length}`);
       photos.forEach( (o)=> {
         if (o.location && o.location instanceof GeoJsonPoint == false ) {
           o.location = new GeoJsonPoint(o.location);
@@ -250,6 +251,7 @@ export class CameraRollWithLoc {
     let result = this._filteredPhotos || this._photos || [];
     if (!result.length) {
       console.warn("CameraRoll: no photos found. check query/filter");
+      return result
     }
 
     result = result.slice(0, limit);

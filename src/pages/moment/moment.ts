@@ -185,6 +185,7 @@ export class MomentPage {
   momentsByLocation: {[key:string]:any} = {}
   peek: any = [];
   selectedCameraRoll: cameraRollPhoto[];
+  selectedMomentLoc: any;
 
   constructor(
     public navCtrl: NavController
@@ -215,33 +216,61 @@ export class MomentPage {
       }) 
     );
     promises.push( this.googleMapsAPI.load() );
-    Promise.all(promises)
+    return Promise.all(promises)
     .then( ()=>{
       let photos = this.cameraRoll.getPhotos(9999);
-      // make sure google.maps API is loaded
-      this.moments = parseCameraRollForMoments(photos);
-      this.momentsByLocation = parseMomentsByLocation(this.moments);
-
-      this.peek = _.chain(this.momentsByLocation)
-        .values()
-        .filter(
-          // sample from momentsLocs with > 5 photos
-          (m)=>{
-            const photoCount = _.reduce(m['moments'], (memo, o: moment)=>{
-              return memo += o.cameraRoll.length;
-            }, 0)
-            return photoCount > 5;
-          }
-        )
-        .sampleSize(24)
-        .each( m=>{
-          m['$coverPhoto'] = m['$coverPhoto']  || this.getCoverPhoto(m);
-        })
-        .sortBy( o=>o['from'] )  // ASC momentLoc.from
-        .reverse()  // DESC momentLoc.from
-        .value();
-      console.log('peek', this.peek)
+      if (photos.length) {
+        // make sure google.maps API is loaded
+        this.moments = parseCameraRollForMoments(photos);
+        this.momentsByLocation = parseMomentsByLocation(this.moments);
+        this.peek = this.sampleMomentsByLocation(this.moments, 24) 
+      } else {
+        console.warn("NO PHOTOS FOUND")
+      }
     })
+  }
+
+  sampleMomentsByLocation(moments:moment[], size:number = 24, method: string = "AtLeast5"){
+    const atLeastNPhotos :( (n:number) => (m:any)=>boolean ) = (n:number)=>{
+      let count = n;
+      return (m)=>{
+        const photoCount = _.reduce(m['moments'], (memo, o: moment)=>{
+          return memo += o.cameraRoll.length;
+        }, 0)
+        return photoCount >= count;
+      }
+    }
+
+    let filterMethod:(m:{
+        label: string,
+        count: number,
+        from: Date,
+        moments: moment[]
+      })=>boolean;
+
+    switch (method) {
+      case "hello":
+      case "AtLeast5":
+      default: 
+        filterMethod = atLeastNPhotos(5)
+    }
+
+    const samples = _.chain(this.momentsByLocation)
+      .values()
+      .filter(
+        // sample from momentsLocs with > 5 photos
+        (m)=> filterMethod
+      )
+      .sampleSize( size )
+      .each( m=>{
+        m['$coverPhoto'] = m['$coverPhoto']  || this.getCoverPhoto(m);
+      })
+      .sortBy( o=>o['from'] )  // ASC momentLoc.from
+      .reverse()  // DESC momentLoc.from
+      .value();
+    console.log('sampleMomentsByLocation, first=', samples[0])
+    return samples;
+
   }
 
   getCoverPhoto(arg0: moment | any ): cameraRollPhoto{
@@ -307,7 +336,20 @@ export class MomentPage {
   }
 
 
-  showMomentRoll(momentLoc){
+  sampleMomentLoc() {
+    // get a random momentLoc, 
+    // called by shake() from ImageScrollPage
+    const momentLocs = _.sampleSize(this.peek, 2)
+    let m = momentLocs.shift()
+    if (m != this.selectedMomentLoc)
+      this.selectedMomentLoc = m;
+    else {
+      this.selectedMomentLoc = momentLocs.shift();
+    }
+    return this.selectedMomentLoc;
+  }
+
+  showMomentRoll(momentLoc:any){
 
     const daysBetween = function( date1, date2 ) {
       //Get 1 day in milliseconds
@@ -328,6 +370,8 @@ export class MomentPage {
       // Convert back to days and return
       return Math.round(difference_ms/one_day); 
     }
+
+    this.selectedMomentLoc = momentLoc;
 
     // flatten momentLoc.moments into single array, with headerFn data
     const headerLookup : {[key : number]: moment} = {};
