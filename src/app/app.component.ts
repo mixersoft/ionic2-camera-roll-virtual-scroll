@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { LazyMapsAPILoader } from 'angular2-google-maps/core/services';
 import { Platform } from 'ionic-angular';
 import { StatusBar, Splashscreen } from 'ionic-native';
 import ImgCache from 'imgcache.js';
@@ -12,7 +13,13 @@ import { TabsPage } from '../pages/tabs/tabs';
 export class MyApp {
   rootPage = TabsPage;
 
-  constructor(public platform: Platform) {
+  constructor(
+    public platform: Platform
+    , private googleMapsAPI: LazyMapsAPILoader
+  ) {
+    this.googleMapsAPI.load().then( ()=>{
+      console.info("googleMapsAPI loaded");
+    })
     platform.ready().then(() => {
       // Okay, so the platform is ready and our plugins are available.
       // Here you can do any higher level native things you might need.

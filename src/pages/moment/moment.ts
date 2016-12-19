@@ -1,8 +1,10 @@
 import { Component, Pipe } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { NavController, Platform } from 'ionic-angular';
+import { LoadingController, NavController, NavParams, Platform } from 'ionic-angular';
+import { Shake } from 'ionic-native';
 import { LazyMapsAPILoader } from 'angular2-google-maps/core/services';
 import _ from "lodash";
+import { Subscription } from 'rxjs';
 
 import {
   CameraRollWithLoc, ImageService, localTimeAsDate, add$ImgAttrs,
@@ -177,23 +179,27 @@ function parseCameraRollForMoments(photos: cameraRollPhoto[]) : any {
   templateUrl: 'moment.html'
   , providers: [
     DatePipe,
-    LazyMapsAPILoader
+    // LazyMapsAPILoader
   ]
 })
 export class MomentPage {
   moments : moment[] = [];
   momentsByLocation: {[key:string]:any} = {}
   peek: any = [];
+  watch: {[key:string]: Subscription } = {}
+  loading: any;  // loadingCtrl.instance
   selectedCameraRoll: cameraRollPhoto[];
   selectedMomentLoc: any;
 
   constructor(
     public navCtrl: NavController
+    , private navParams: NavParams
     , public platform: Platform
     , public cameraRoll: CameraRollWithLoc
     , public imageService: ImageService
     , public datePipe: DatePipe
     , private googleMapsAPI: LazyMapsAPILoader
+    , private loadingCtrl: LoadingController
   ) {
   }
 
@@ -205,14 +211,49 @@ export class MomentPage {
     if (_.isEmpty(this.peek)) {
       this.getMoments()
     }
+    if (this.platform.is("cordova")) {
+      this.watch['shake'] = Shake.startWatch(30).subscribe( ()=>{
+        this.shake();
+      });
+    }
   }
 
+  ionViewWillLeave() {
+    if (this.navCtrl.getActive().instance instanceof ImageScrollPage == false){
+      this.watch['shake'] && this.watch['shake'].unsubscribe();
+    }
+  }
 
-  getMoments(options = {}){
+  shake() {
+    if (this.navCtrl.getActive().instance instanceof MomentPage) {
+      this.peek = this.sampleMomentsByLocation(this.moments, 24);
+    } else if (this.navCtrl.getActive().instance instanceof ImageScrollPage) {
+      // sample a new momentLoc and push a new ImageScrollPage
+      const ml = this.sampleMomentLoc();
+      this.showMomentRoll(ml)
+    }
+  }
+
+  getMoments(options?){
     let promises: Promise<any>[] = [];
     promises.push( this.platform.ready().then( 
-      ()=>{ 
-        this.cameraRoll.queryPhotos(options);
+      ()=>{
+
+        this.loading = this.loadingCtrl.create({
+          // spinner: 'ios',
+          content: 'Scanning cameraRoll...'
+        })
+        let cancelLoading = setTimeout( ()=>{
+          // show loading after 100ms delay
+          cancelLoading = null;
+          this.loading.present();
+        }, 100)
+        return this.cameraRoll.queryPhotos(options)
+        .then( (o)=>{
+          // cancel loading if it has NOT launched yet.
+          cancelLoading && clearTimeout(cancelLoading);
+          return o;
+        })
       }) 
     );
     promises.push( this.googleMapsAPI.load() );
@@ -221,9 +262,11 @@ export class MomentPage {
       let photos = this.cameraRoll.getPhotos(9999);
       if (photos.length) {
         // make sure google.maps API is loaded
+        this.loading && this.loading.setContent(`Processing ${photos.length} photos...`)
         this.moments = parseCameraRollForMoments(photos);
         this.momentsByLocation = parseMomentsByLocation(this.moments);
-        this.peek = this.sampleMomentsByLocation(this.moments, 24) 
+        this.peek = this.sampleMomentsByLocation(this.moments, 24)
+        this.loading && this.loading.dismiss() 
       } else {
         console.warn("NO PHOTOS FOUND")
       }

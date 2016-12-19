@@ -6,7 +6,7 @@
 -->
 <ion-header>
 
-  <ion-navbar>
+  <ion-navbar (swipe)="onSwipe($event)">
     <ion-title>{{this.title || "ImageScroll" }}</ion-title>
   </ion-navbar>
 

@@ -1,5 +1,7 @@
 import { NgModule, ErrorHandler } from '@angular/core';
 import { IonicApp, IonicModule, IonicErrorHandler, Platform } from 'ionic-angular';
+import { LazyMapsAPILoader } from 'angular2-google-maps/core/services';
+
 import { MyApp } from './app.component';
 import { AboutPage } from '../pages/about/about';
 import { ContactPage } from '../pages/contact/contact';
@@ -62,6 +64,7 @@ import {
       , deps: [Platform]
       , useFactory: CameraRollWithLocFactory
     }
+    , LazyMapsAPILoader
   ]
 })
 export class AppModule {}

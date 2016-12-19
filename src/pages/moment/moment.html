@@ -14,8 +14,15 @@
 
 
 <ion-content padding>
-  <button ion-button color="secondary" (click)="getMoments()"> Get Moments
-  </button>
+  <div *ngIf="platform.is('core')">
+    <button ion-button color="secondary" (click)="getMoments()"> Get Moments
+    </button>
+    <button ion-button color="secondary"
+      [disabled]="this.peek.length==0" 
+      (click)="shake()"
+      > Shake
+    </button>
+  </div>
 
   <ion-list class="card-background-page virtual-scroll-HACK"
   *ngIf="peek"
@@ -33,42 +40,6 @@
       <div class="card-subtitle">{{getSubtitle(momentLoc)}}</div>
     </ion-card>
   </ion-list>
-
-  <!--<ion-list
-    *ngIf="selectedCameraRoll"
-    [virtualScroll]="selectedCameraRoll" 
-    [headerFn]="myHeaderFn"
-    approxItemHeight="340px"
-    approxHeaderHeight="42px"
-    >
-
-    <ion-item-divider *virtualHeader="let header">
-      Photos {{ header }}
-    </ion-item-divider>
-
-    <ion-card
-      no-padding
-      margin-vertical
-      *virtualItem="let photo"
-      >
-      <ion-img [src]="getLazySrc(photo).$img?.src" 
-        [width]="photo.$img?.w" 
-        [height]="photo.$img?.h"
-      ></ion-img>
-      <ion-card-content>
-        <ion-card-title>
-          {{photo.filename}}
-          <ion-icon name="star" *ngIf="photo.isFavorite"></ion-icon>
-        </ion-card-title>
-        <p > taken: {{ getLocalTime(photo) }} </p>
-        <p > photo: {{ getDimensions(photo) }} 
-          <span [hidden]="!photo.$img">, IMG: {{ getDimensions(photo, '$img') }}</span>
-        </p>
-        <p [hidden]="!photo.position"> gps: {{ photo.position | json}} <p>
-        <p class="truncate"> {{photo.uuid}} </p>
-      </ion-card-content>
-    </ion-card>
-  </ion-list>-->
 
   <!--<PRE [innerHTML]="this.peek | prettyprint"></PRE>-->
   

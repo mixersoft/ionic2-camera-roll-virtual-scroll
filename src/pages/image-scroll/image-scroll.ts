@@ -1,7 +1,9 @@
 import { Component, ViewChild } from '@angular/core';
-import { NavController, NavParams, Platform } from 'ionic-angular';
+import { LoadingController, NavController, NavParams, Platform } from 'ionic-angular';
+import { Shake } from 'ionic-native';
 import { LazyMapsAPILoader } from 'angular2-google-maps/core/services';
 import _ from "lodash";
+import { Subscription } from 'rxjs';
 
 import {
   CameraRollWithLoc, ImageService, localTimeAsDate, add$ImgAttrs,
@@ -22,7 +24,7 @@ declare var google:any;
   selector: 'page-image-scroll',
   templateUrl: 'image-scroll.html'
   , providers: [
-    LazyMapsAPILoader
+    // LazyMapsAPILoader
   ]
   , styles: [`
     .sebm-google-map-container {
@@ -45,6 +47,7 @@ export class ImageScrollPage {
   items : cameraRollPhoto[] = [];
   headerFn: (o,i,l)=>string;
   fitBounds: google.maps.LatLngBoundsLiteral;
+  watch: {[key:string]: Subscription } = {}
 
   @ViewChild('sebmGoogleMapComponent') private sebmGoogMap: any;
 
@@ -55,6 +58,7 @@ export class ImageScrollPage {
     , public imageService: ImageService
     , private navParams: NavParams
     , private googleMapsAPI: LazyMapsAPILoader
+    , private loadingCtrl: LoadingController
   ) {}
 
   ionViewDidLoad() {
@@ -96,6 +100,22 @@ export class ImageScrollPage {
       this.loadCameraRoll();
     }
     this.title = this.navParams.get('title') || null;
+    // this.watch['shake'] = Shake.startWatch(40).subscribe(()=>{
+    //   this.navCtrl.popTo("MomentPage", {
+    //     shake: true
+    //   })
+    // });
+  }
+
+  ionViewWillLeave() {
+    this.watch['shake'] && this.watch['shake'].unsubscribe();
+  }
+
+  onSwipe($event: any) {
+    if ($event.direction == 2 && $event.deltaX < -50){
+      // swipe-left
+      this.navCtrl.popToRoot()
+    }
   }
 
   loadCameraRoll(){

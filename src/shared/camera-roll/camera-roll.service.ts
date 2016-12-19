@@ -142,14 +142,17 @@ export class CameraRollWithLoc {
   queryPhotos(options?: optionsQuery, force:boolean = false) : Promise<cameraRollPhoto[]>{
     if (!this._isProcessing && this._photos.length && !options && force==false) {
       // resolve immediately with cached value
+      // console.info('3>> queryPhotos')
       return Promise.resolve(this._photos);
     }
     
     if (this._isProcessing && !options && force==false){
       // wait for promise to resolve
+      // console.info('1>> queryPhotos')
       return this._isProcessing;
     }
 
+    if (options == undefined) options = {}
     const plugin : any = _.get( window, "cordova.plugins.CameraRollLocation");
     if (!plugin) {
       const err = "cordova.plugins.CameraRollLocation not available.";
@@ -157,17 +160,20 @@ export class CameraRollWithLoc {
       throw new Error(err);
     }
     // map startDate=>from, endDate=>to as a convenience
-    if (options && !options.from && options['startDate']) options.from = options['startDate']
-    if (options && !options.to && options['endDate']) options.to = options['endDate']
-    console.info("0> getCameraRoll, options=", JSON.stringify(options));
+    if (!options.from && options['startDate']) options.from = options['startDate']
+    if (!options.to && options['endDate']) options.to = options['endDate']
+    // console.info("0> cameraRollLocation.queryPhotos(), options=", JSON.stringify(options));
+    const start = Date.now();
     this._isProcessing = plugin['getCameraRoll'](options)
     .then( (photos)=>{
-      console.log(`1> cameraRollLocation.queryPhotos(), rows=${photos.length}`);
-      photos.forEach( (o)=> {
-        if (o.location && o.location instanceof GeoJsonPoint == false ) {
-          o.location = new GeoJsonPoint(o.location);
-        }
-      });
+      if (photos.length)
+        console.log(`> cameraRollLocation.queryPhotos(), rows=${photos.length}, ms=${Date.now()-start}`);
+      // // cameraRollPhoto.location is deprecated
+      // photos.forEach( (o)=> {
+      //   if (o.location && o.location instanceof GeoJsonPoint == false ) {
+      //     o.location = new GeoJsonPoint(o.location);
+      //   }
+      // });
       this._isProcessing = null;
       return this._photos = photos;
     })
